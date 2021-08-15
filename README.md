@@ -51,4 +51,52 @@ The application mimics a microservice by supporting two operation modes:
 
 ![image](https://user-images.githubusercontent.com/22028539/129488515-2751867a-fa14-4bf9-a166-80fcc464e959.png)
 
+The frontend and backend modes support two additional URLs:
+- version prints the running version.
+- healthz reports the application's health. In frontend mode, the health displays as OK if the backend is reachable.
+
+## Deploying the sample app to Kubernetes
+
+Deploy the gceme frontend and backend to Kubernetes using manifest files that describe the deployment environment. The files use a default image that is updated later in this tutorial.
+
+Deploy the applications into two environments.
+- Production. The live site that your users access.
+- Canary. A smaller-capacity site that receives a percentage of your user traffic. Use this environment to sanity check your software with live traffic before it's released to the live environment.
+
+First, deploy your application into the production environment to seed the pipeline with working code.
+
+1. Create the Kubernetes namespace to logically isolate the production deployment:
+```
+kubectl create ns production
+```
+2. Create the canary and production deployments and services:
+```
+kubectl --namespace=production apply -f k8s/production
+kubectl --namespace=production apply -f k8s/canary
+kubectl --namespace=production apply -f k8s/services
+```
+3. Scale up the production environment frontends:
+```
+kubectl --namespace=production scale deployment gceme-frontend-production --replicas=4
+```
+4. Retrieve the external IP for the production services. It can take several minutes before you see the load balancer IP address.
+```
+kubectl --namespace=production get service gceme-frontend
+```
+
+When the process completes, an IP address is displayed in the EXTERNAL-IP column.
+
+5. Store the frontend service load balancer IP in an environment variable:
+```
+export FRONTEND_SERVICE_IP=$(kubectl get -o jsonpath="{.status.loadBalancer.ingress[0].ip}"  --namespace=production services gceme-frontend)
+```
+
+6. Confirm that both services are working by opening the frontend external IP address in your browser.
+
+7. Open a separate terminal and poll the production endpoint's /version URL so you can observe rolling updates in the next section:
+```
+while true; do curl http://$FRONTEND_SERVICE_IP/version; sleep 1;  done
+```
+
+
 
